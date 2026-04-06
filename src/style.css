@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+/* Ambient page background */
+.dashboard-bg {
+  background-color: #050814;
+  background-image:
+    radial-gradient(ellipse 90% 60% at 50% -25%, rgba(99, 102, 241, 0.16), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 100% 10%, rgba(236, 72, 153, 0.07), transparent 48%),
+    radial-gradient(ellipse 75% 55% at 0% 100%, rgba(34, 211, 238, 0.06), transparent 52%);
+}
+
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-page-in {
+  animation: page-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes title-shimmer {
+  0%,
+  100% {
+    background-position: 0% center;
+  }
+  50% {
+    background-position: 100% center;
+  }
+}
+
+.animate-title-shimmer {
+  animation: title-shimmer 11s ease-in-out infinite;
+}
+
+/* Chart grid mount (Vue <Transition>) */
+.charts-mount-enter-active {
+  transition:
+    opacity 0.68s cubic-bezier(0.22, 1, 0.36, 1),
+    transform 0.68s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.charts-mount-enter-from {
+  opacity: 0;
+  transform: translateY(22px);
+}
+
+@keyframes chart-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #chart-grid .chart-panel {
+    animation: chart-rise 0.58s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
+
+  #chart-grid .chart-panel:nth-child(1) {
+    animation-delay: 0.05s;
+  }
+  #chart-grid .chart-panel:nth-child(2) {
+    animation-delay: 0.1s;
+  }
+  #chart-grid .chart-panel:nth-child(3) {
+    animation-delay: 0.14s;
+  }
+  #chart-grid .chart-panel:nth-child(4) {
+    animation-delay: 0.18s;
+  }
+  #chart-grid .chart-panel:nth-child(5) {
+    animation-delay: 0.22s;
+  }
+  #chart-grid .chart-panel:nth-child(6) {
+    animation-delay: 0.26s;
+  }
+  #chart-grid .chart-panel:nth-child(7) {
+    animation-delay: 0.3s;
+  }
+  #chart-grid .chart-panel:nth-child(8) {
+    animation-delay: 0.34s;
+  }
+
+  #chart-grid .chart-panel:nth-child(9) {
+    animation-delay: 0.38s;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-page-in,
+  .animate-title-shimmer {
+    animation: none !important;
+  }
+
+  .charts-mount-enter-active {
+    transition: none;
+  }
+
+  .charts-mount-enter-from {
+    opacity: 1;
+    transform: none;
+  }
+
+  #chart-grid .chart-panel {
+    animation: none !important;
+  }
+}
