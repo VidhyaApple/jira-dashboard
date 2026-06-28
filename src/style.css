@@ -1,117 +1,109 @@
 @import "tailwindcss";
 
-/* Ambient page background */
-.dashboard-bg {
-  background-color: #050814;
-  background-image:
-    radial-gradient(ellipse 90% 60% at 50% -25%, rgba(99, 102, 241, 0.16), transparent 55%),
-    radial-gradient(ellipse 70% 45% at 100% 10%, rgba(236, 72, 153, 0.07), transparent 48%),
-    radial-gradient(ellipse 75% 55% at 0% 100%, rgba(34, 211, 238, 0.06), transparent 52%);
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+@theme {
+  --color-brand-50: #ecf3ff;
+  --color-brand-100: #dde9ff;
+  --color-brand-300: #9cb9ff;
+  --color-brand-400: #7592ff;
+  --color-brand-500: #465fff;
+  --color-brand-600: #3641f5;
+  --color-brand-700: #262e89;
+
+  --color-blue-light-50: #f0f9ff;
+  --color-blue-light-200: #b9e6fe;
+  --color-blue-light-500: #0ba5ec;
+  --color-blue-light-800: #065986;
+
+  --color-success-50: #ecfdf3;
+  --color-success-400: #32d583;
+  --color-success-500: #12b76a;
+  --color-success-600: #039855;
+
+  --color-warning-50: #fffaeb;
+  --color-warning-200: #fedf89;
+  --color-warning-300: #fec84b;
+  --color-warning-600: #dc6803;
+  --color-warning-700: #b54708;
+
+  --color-error-50: #fef3f2;
+  --color-error-200: #fecdca;
+  --color-error-500: #f04438;
+  --color-error-700: #b42318;
+
+  --color-purple-50: #f4f3ff;
+  --color-purple-500: #7a5af8;
 }
 
-@keyframes page-in {
-  from {
-    opacity: 0;
-    transform: translateY(18px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+:root,
+[data-theme="light"] {
+  color-scheme: light;
 }
 
-.animate-page-in {
-  animation: page-in 0.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+[data-theme="dark"] {
+  color-scheme: dark;
 }
 
-@keyframes title-shimmer {
-  0%,
-  100% {
-    background-position: 0% center;
-  }
-  50% {
-    background-position: 100% center;
-  }
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background: #ebedef;
 }
 
-.animate-title-shimmer {
-  animation: title-shimmer 11s ease-in-out infinite;
+[data-theme="dark"] body {
+  background: #1a1d21;
 }
 
-/* Chart grid mount (Vue <Transition>) */
-.charts-mount-enter-active {
-  transition:
-    opacity 0.68s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.68s cubic-bezier(0.22, 1, 0.36, 1);
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.125rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
-.charts-mount-enter-from {
+.badge-ciec {
+  background: var(--color-brand-50);
+  color: var(--color-brand-700);
+}
+
+.badge-team {
+  background: var(--color-success-50);
+  color: var(--color-success-600);
+}
+
+.badge-muted {
+  background: #f2f4f7;
+  color: #667085;
+}
+
+[data-theme="dark"] .badge-ciec {
+  background: rgb(70 95 255 / 0.15);
+  color: #9cb9ff;
+}
+
+[data-theme="dark"] .badge-team {
+  background: rgb(18 183 106 / 0.15);
+  color: #6ce9a6;
+}
+
+[data-theme="dark"] .badge-muted {
+  background: rgb(255 255 255 / 0.06);
+  color: #98a2b3;
+}
+
+.fade-up-enter-active {
+  transition: opacity 0.35s ease, transform 0.35s ease;
+}
+
+.fade-up-enter-from {
   opacity: 0;
-  transform: translateY(22px);
+  transform: translateY(8px);
 }
 
-@keyframes chart-rise {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  #chart-grid .chart-panel {
-    animation: chart-rise 0.58s cubic-bezier(0.22, 1, 0.36, 1) backwards;
-  }
-
-  #chart-grid .chart-panel:nth-child(1) {
-    animation-delay: 0.05s;
-  }
-  #chart-grid .chart-panel:nth-child(2) {
-    animation-delay: 0.1s;
-  }
-  #chart-grid .chart-panel:nth-child(3) {
-    animation-delay: 0.14s;
-  }
-  #chart-grid .chart-panel:nth-child(4) {
-    animation-delay: 0.18s;
-  }
-  #chart-grid .chart-panel:nth-child(5) {
-    animation-delay: 0.22s;
-  }
-  #chart-grid .chart-panel:nth-child(6) {
-    animation-delay: 0.26s;
-  }
-  #chart-grid .chart-panel:nth-child(7) {
-    animation-delay: 0.3s;
-  }
-  #chart-grid .chart-panel:nth-child(8) {
-    animation-delay: 0.34s;
-  }
-
-  #chart-grid .chart-panel:nth-child(9) {
-    animation-delay: 0.38s;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-page-in,
-  .animate-title-shimmer {
-    animation: none !important;
-  }
-
-  .charts-mount-enter-active {
-    transition: none;
-  }
-
-  .charts-mount-enter-from {
-    opacity: 1;
-    transform: none;
-  }
-
-  #chart-grid .chart-panel {
-    animation: none !important;
-  }
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
