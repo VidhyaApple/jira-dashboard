@@ -79,6 +79,7 @@ export function buildMonthlySeries (rows: Ticket[], assumeMissingSpAsOne = false
   }
   return {
     labels: keys.map(monthLabelFromKey),
+    monthKeys: keys,
     chennaiSp: keys.map(k => agg[k]!.chennai.sp),
     ukSp: keys.map(k => agg[k]!.uk.sp),
     chennaiN: keys.map(k => agg[k]!.chennai.n),

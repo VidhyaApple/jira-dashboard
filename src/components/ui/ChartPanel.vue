@@ -1,15 +1,28 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import ChartRegionSelect from './ChartRegionSelect.vue'
 import type { CombinedChartRegionFilter } from '../../utils/chartRegion'
 
-defineProps<{
+const props = defineProps<{
   title: string
   subtitle?: string
   span?: 'default' | 'full'
   showRegionFilter?: boolean
+  onExportPng?: () => void
 }>()
 
 const regionFilter = defineModel<CombinedChartRegionFilter>('regionFilter', { default: 'all' })
+const exporting = ref(false)
+
+function exportPng () {
+  if (!props.onExportPng) return
+  exporting.value = true
+  try {
+    props.onExportPng()
+  } finally {
+    exporting.value = false
+  }
+}
 </script>
 
 <template>
@@ -22,7 +35,17 @@ const regionFilter = defineModel<CombinedChartRegionFilter>('regionFilter', { de
         <h3 class="text-sm font-semibold text-gray-800 dark:text-gray-100">{{ title }}</h3>
         <p v-if="subtitle" class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ subtitle }}</p>
       </div>
-      <ChartRegionSelect v-if="showRegionFilter" v-model="regionFilter" />
+      <div class="flex shrink-0 items-center gap-2">
+        <button
+          v-if="onExportPng"
+          type="button"
+          class="rounded border border-gray-200 px-2 py-1 text-[11px] font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-white/5"
+          :disabled="exporting"
+          title="Download chart as PNG"
+          @click="exportPng"
+        >PNG</button>
+        <ChartRegionSelect v-if="showRegionFilter" v-model="regionFilter" />
+      </div>
     </div>
     <div class="p-4">
       <slot />

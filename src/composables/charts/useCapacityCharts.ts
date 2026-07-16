@@ -4,8 +4,10 @@ import { storeToRefs } from 'pinia'
 import { REGION_LABELS } from '../../config/squads'
 import { useDashboardStore } from '../../stores/dashboard'
 import { useCapacityStore } from '../../stores/capacity'
+import { usePeriodNotesStore } from '../../stores/periodNotes'
 import { buildMonthlySeries } from '../../utils/timelineSeries'
-import { buildMonthlyCapacityComparison } from '../../utils/capacitySeries'
+import { buildMonthlyCapacityComparison, baselineSeriesSuffix, computeFilteredPeriodBaseline } from '../../utils/capacitySeries'
+import { noteTooltipLine, periodNoteMarkPoints } from '../../utils/chartPeriodNotes'
 import {
   type CombinedChartRegionFilter,
   showChennaiSeries,
@@ -15,6 +17,7 @@ import { pctValueLabel, valueLabel } from '../../utils/chartLabels'
 import { NO_DATE_MSG, useChartTheme } from '../useChartTheme'
 
 const NO_CAPACITY_MSG = 'Set developer counts in the sidebar to calculate monthly capacity'
+const NO_FILTERED_BASELINE_MSG = 'Need at least one month in the filtered period for baseline'
 
 function formatCapacityPct (value: number | null | undefined): string {
   if (value == null) return '—'
@@ -24,29 +27,58 @@ function formatCapacityPct (value: number | null | undefined): string {
 function buildSpChartOption (
   data: ReturnType<typeof buildMonthlyCapacityComparison>,
   theme: ReturnType<typeof useChartTheme>,
-  regionFilter: CombinedChartRegionFilter
+  regionFilter: CombinedChartRegionFilter,
+  notesByMonth: Record<string, string>
 ): EChartsOption {
   const c = theme.chartColors.value
-  const { labels, chennaiSp, ukSp, totalSp, chennaiCapacity, ukCapacity, totalCapacity } = data
+  const {
+    labels,
+    monthKeys,
+    chennaiSp,
+    ukSp,
+    chennaiCapacity,
+    ukCapacity,
+    baselineMode
+  } = data
+  const baselineSuffix = baselineSeriesSuffix(baselineMode)
+  const useFilteredBaseline = baselineMode === 'filtered'
 
   function repeatCapacity (value: number) {
     return labels.map(() => value)
   }
 
+  function baselineLine (name: string, value: number, color: string) {
+    return {
+      name,
+      type: 'line' as const,
+      smooth: false,
+      symbol: 'none' as const,
+      data: repeatCapacity(value),
+      lineStyle: { width: 2, color, type: 'dashed' as const },
+      itemStyle: { color },
+      label: { show: false },
+      z: 2
+    }
+  }
+
   const series: EChartsOption['series'] = []
+  let firstBarIndex = -1
 
   if (showChennaiSeries(regionFilter)) {
-    series.push(
-      {
-        name: `${REGION_LABELS.chennai} actual`,
-        type: 'bar',
-        stack: 'ciec',
-        data: chennaiSp,
-        barMaxWidth: 22,
-        itemStyle: { color: '#465fff', borderRadius: [0, 0, 0, 0] },
-        label: valueLabel(c, { color: '#465fff' })
-      },
-      {
+    if (firstBarIndex < 0) firstBarIndex = series.length
+    series.push({
+      name: `${REGION_LABELS.chennai} actual`,
+      type: 'bar',
+      stack: 'ciec',
+      data: chennaiSp,
+      barMaxWidth: 22,
+      itemStyle: { color: '#465fff', borderRadius: [0, 0, 0, 0] },
+      label: valueLabel(c, { color: '#465fff' })
+    })
+    if (useFilteredBaseline) {
+      series.push(baselineLine(`${REGION_LABELS.chennai} ${baselineSuffix}`, chennaiCapacity, '#7592ff'))
+    } else {
+      series.push({
         name: `${REGION_LABELS.chennai} capacity`,
         type: 'bar',
         stack: 'ciec-cap',
@@ -54,22 +86,25 @@ function buildSpChartOption (
         barMaxWidth: 22,
         itemStyle: { color: 'rgba(70, 95, 255, 0.18)', borderColor: '#7592ff', borderWidth: 1, borderRadius: [4, 4, 0, 0] },
         label: { show: false }
-      }
-    )
+      })
+    }
   }
 
   if (showUkSeries(regionFilter)) {
-    series.push(
-      {
-        name: `${REGION_LABELS.uk} actual`,
-        type: 'bar',
-        stack: 'uk',
-        data: ukSp,
-        barMaxWidth: 22,
-        itemStyle: { color: '#12b76a', borderRadius: [0, 0, 0, 0] },
-        label: valueLabel(c, { color: '#12b76a', position: 'bottom' })
-      },
-      {
+    if (firstBarIndex < 0) firstBarIndex = series.length
+    series.push({
+      name: `${REGION_LABELS.uk} actual`,
+      type: 'bar',
+      stack: 'uk',
+      data: ukSp,
+      barMaxWidth: 22,
+      itemStyle: { color: '#12b76a', borderRadius: [0, 0, 0, 0] },
+      label: valueLabel(c, { color: '#12b76a', position: 'bottom' })
+    })
+    if (useFilteredBaseline) {
+      series.push(baselineLine(`${REGION_LABELS.uk} ${baselineSuffix}`, ukCapacity, '#32d583'))
+    } else {
+      series.push({
         name: `${REGION_LABELS.uk} capacity`,
         type: 'bar',
         stack: 'uk-cap',
@@ -77,35 +112,19 @@ function buildSpChartOption (
         barMaxWidth: 22,
         itemStyle: { color: 'rgba(18, 183, 106, 0.18)', borderColor: '#32d583', borderWidth: 1, borderRadius: [4, 4, 0, 0] },
         label: { show: false }
-      }
-    )
+      })
+    }
   }
 
-  if (regionFilter === 'all') {
-    series.push(
-      {
-        name: 'Total actual',
-        type: 'line',
-        smooth: true,
-        symbolSize: 7,
-        data: totalSp,
-        lineStyle: { width: 2.5, color: '#6366f1' },
-        itemStyle: { color: '#6366f1' },
-        label: valueLabel(c, { color: '#6366f1' }),
-        z: 3
-      },
-      {
-        name: 'Total capacity',
-        type: 'line',
-        smooth: false,
-        symbol: 'none',
-        data: repeatCapacity(totalCapacity),
-        lineStyle: { width: 2, color: '#94a3b8', type: 'dashed' },
-        itemStyle: { color: '#94a3b8' },
-        label: { show: false },
-        z: 2
-      }
-    )
+  const markY = regionFilter === 'uk'
+    ? ukSp
+    : regionFilter === 'chennai'
+      ? chennaiSp
+      : ukSp
+
+  if (firstBarIndex >= 0 && series[firstBarIndex] && typeof series[firstBarIndex] === 'object') {
+    const bar = series[firstBarIndex] as { markPoint?: ReturnType<typeof periodNoteMarkPoints> }
+    bar.markPoint = periodNoteMarkPoints(monthKeys, notesByMonth, markY)
   }
 
   return theme.withChartMotion({
@@ -115,7 +134,24 @@ function buildSpChartOption (
       backgroundColor: c.tooltipBg,
       borderColor: c.tooltipBorder,
       textStyle: { color: c.textStrong },
-      axisPointer: { type: 'shadow' }
+      axisPointer: { type: 'shadow' },
+      formatter (params: unknown) {
+        const rows = Array.isArray(params) ? params : [params]
+        const idx = (rows[0] as { dataIndex?: number })?.dataIndex ?? 0
+        const period = labels[idx] ?? ''
+        const lines = [`<strong>${period}</strong>`]
+        for (const row of rows) {
+          const p = row as { seriesName?: string; value?: number; marker?: string; seriesType?: string }
+          if (p.seriesType === 'line') {
+            lines.push(`${p.marker ?? ''} ${p.seriesName}: <strong>${p.value ?? 0} SP</strong>`)
+          } else if (p.seriesType === 'bar') {
+            lines.push(`${p.marker ?? ''} ${p.seriesName}: <strong>${p.value ?? 0} SP</strong>`)
+          }
+        }
+        const note = noteTooltipLine(notesByMonth[monthKeys[idx]!])
+        if (note) lines.push(note)
+        return lines.join('<br/>')
+      }
     },
     legend: { ...theme.themedLegend(), top: 0 },
     grid: { left: 48, right: 24, bottom: 56, top: 64, containLabel: true },
@@ -142,7 +178,8 @@ function buildPctChartOption (
   regionFilter: CombinedChartRegionFilter
 ): EChartsOption {
   const c = theme.chartColors.value
-  const { labels, totalPct, chennaiPct, ukPct, totalSp, chennaiSp, ukSp, totalCapacity, chennaiCapacity, ukCapacity } = data
+  const { labels, totalPct, chennaiPct, ukPct, totalSp, chennaiSp, ukSp, totalCapacity, chennaiCapacity, ukCapacity, baselineMode } = data
+  const baselineLabel = baselineMode === 'filtered' ? 'baseline' : 'capacity'
   const mainPct = primaryCapacityPct(regionFilter, totalPct, chennaiPct, ukPct)
 
   function combinedPctLabel (value: number | null, i: number) {
@@ -150,9 +187,7 @@ function buildPctChartOption (
     const parts = [`{total|${formatCapacityPct(value)}}`]
     if (regionFilter === 'all') {
       const cVal = chennaiPct[i]
-      const uVal = ukPct[i]
       if (cVal != null) parts.push(`{chennai|${REGION_LABELS.chennai} ${formatCapacityPct(cVal)}}`)
-      if (uVal != null) parts.push(`{uk|${REGION_LABELS.uk} ${formatCapacityPct(uVal)}}`)
     }
     return parts.join('\n')
   }
@@ -177,33 +212,20 @@ function buildPctChartOption (
     }
   })
 
-  const mainName = regionFilter === 'all' ? 'Total' : REGION_LABELS[regionFilter]
+  const mainName = REGION_LABELS[regionFilter === 'all' ? 'uk' : regionFilter]
   const lineSeries: EChartsOption['series'] = []
   if (regionFilter === 'all') {
-    lineSeries.push(
-      {
-        name: REGION_LABELS.chennai,
-        type: 'line',
-        smooth: true,
-        showSymbol: true,
-        symbolSize: 6,
-        data: chennaiPct,
-        lineStyle: { width: 2, color: '#465fff' },
-        itemStyle: { color: '#465fff' },
-        label: pctValueLabel(c, '#465fff')
-      },
-      {
-        name: REGION_LABELS.uk,
-        type: 'line',
-        smooth: true,
-        showSymbol: true,
-        symbolSize: 6,
-        data: ukPct,
-        lineStyle: { width: 2, color: '#12b76a' },
-        itemStyle: { color: '#12b76a' },
-        label: { ...pctValueLabel(c, '#12b76a'), position: 'bottom' as const }
-      }
-    )
+    lineSeries.push({
+      name: REGION_LABELS.chennai,
+      type: 'line',
+      smooth: true,
+      showSymbol: true,
+      symbolSize: 6,
+      data: chennaiPct,
+      lineStyle: { width: 2, color: '#465fff' },
+      itemStyle: { color: '#465fff' },
+      label: pctValueLabel(c, '#465fff')
+    })
   }
 
   function actualAt (idx: number): number {
@@ -232,13 +254,10 @@ function buildPctChartOption (
         const lines = [`<strong>${period}</strong>`]
         const cap = capacityForFilter()
         if (mainPct[idx] != null) {
-          lines.push(`${mainName}: <strong>${formatCapacityPct(mainPct[idx])}</strong> (${actualAt(idx)} / ${cap} SP)`)
+          lines.push(`${mainName}: <strong>${formatCapacityPct(mainPct[idx])}</strong> (${actualAt(idx)} / ${cap} SP ${baselineLabel})`)
         }
         if (regionFilter === 'all' && chennaiPct[idx] != null) {
-          lines.push(`${REGION_LABELS.chennai}: <strong>${formatCapacityPct(chennaiPct[idx])}</strong> (${chennaiSp[idx]} / ${chennaiCapacity} SP)`)
-        }
-        if (regionFilter === 'all' && ukPct[idx] != null) {
-          lines.push(`${REGION_LABELS.uk}: <strong>${formatCapacityPct(ukPct[idx])}</strong> (${ukSp[idx]} / ${ukCapacity} SP)`)
+          lines.push(`${REGION_LABELS.chennai}: <strong>${formatCapacityPct(chennaiPct[idx])}</strong> (${chennaiSp[idx]} / ${chennaiCapacity} SP ${baselineLabel})`)
         }
         return lines.join('<br/>')
       }
@@ -281,17 +300,38 @@ function buildPctChartOption (
 function useCapacityComparison () {
   const { filtered, selectedSquad, assumeMissingSpAsOne } = storeToRefs(useDashboardStore())
   const capacity = useCapacityStore()
+  const { baselineMode } = storeToRefs(capacity)
 
   return computed(() => {
     const monthly = buildMonthlySeries(filtered.value, assumeMissingSpAsOne.value)
     const squadCap = capacity.squadCapacity(selectedSquad.value)
-    return buildMonthlyCapacityComparison(monthly, squadCap.chennai, squadCap.uk)
+    const filteredBaseline = computeFilteredPeriodBaseline(monthly)
+    return buildMonthlyCapacityComparison(
+      monthly,
+      squadCap.chennai,
+      squadCap.uk,
+      baselineMode.value,
+      filteredBaseline
+    )
   })
+}
+
+function emptyChartMessage (data: ReturnType<typeof buildMonthlyCapacityComparison>): string {
+  if (data.baselineMode === 'filtered') return NO_FILTERED_BASELINE_MSG
+  return NO_CAPACITY_MSG
 }
 
 export function useMonthlyCapacitySpChart (regionFilter: Ref<CombinedChartRegionFilter>) {
   const theme = useChartTheme()
   const comparison = useCapacityComparison()
+  const { selectedSquad } = storeToRefs(useDashboardStore())
+  const notesStore = usePeriodNotesStore()
+
+  const monthKeys = computed(() => comparison.value.monthKeys)
+
+  const notesByMonth = computed(() =>
+    notesStore.notesForMonths(selectedSquad.value, monthKeys.value)
+  )
 
   const chartOption = computed<EChartsOption>(() => {
     const data = comparison.value
@@ -299,12 +339,12 @@ export function useMonthlyCapacitySpChart (regionFilter: Ref<CombinedChartRegion
       return theme.withChartMotion({ animationDuration: 500, title: theme.chartEmptyTitle(NO_DATE_MSG) })
     }
     if (!data.hasCapacity) {
-      return theme.withChartMotion({ animationDuration: 500, title: theme.chartEmptyTitle(NO_CAPACITY_MSG) })
+      return theme.withChartMotion({ animationDuration: 500, title: theme.chartEmptyTitle(emptyChartMessage(data)) })
     }
-    return buildSpChartOption(data, theme, regionFilter.value)
+    return buildSpChartOption(data, theme, regionFilter.value, notesByMonth.value)
   })
 
-  return { chartOption, comparison }
+  return { chartOption, comparison, monthKeys }
 }
 
 export function useMonthlyCapacityPctChart (regionFilter: Ref<CombinedChartRegionFilter>) {
@@ -317,7 +357,7 @@ export function useMonthlyCapacityPctChart (regionFilter: Ref<CombinedChartRegio
       return theme.withChartMotion({ animationDuration: 500, title: theme.chartEmptyTitle(NO_DATE_MSG) })
     }
     if (!data.hasCapacity) {
-      return theme.withChartMotion({ animationDuration: 500, title: theme.chartEmptyTitle(NO_CAPACITY_MSG) })
+      return theme.withChartMotion({ animationDuration: 500, title: theme.chartEmptyTitle(emptyChartMessage(data)) })
     }
     return buildPctChartOption(data, theme, regionFilter.value)
   })

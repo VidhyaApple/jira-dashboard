@@ -16,7 +16,6 @@ import MonthlySpChart from '../components/charts/MonthlySpChart.vue'
 import MonthlyCountChart from '../components/charts/MonthlyCountChart.vue'
 import MonthlyBaselineChart from '../components/charts/MonthlyBaselineChart.vue'
 import MonthlyCapacitySpChart from '../components/charts/MonthlyCapacitySpChart.vue'
-import MonthlyCapacityPctChart from '../components/charts/MonthlyCapacityPctChart.vue'
 import HierarchyChartPanel from '../components/charts/HierarchyChartPanel.vue'
 import { useDashboardStore } from '../stores/dashboard'
 import { useLayoutStore } from '../stores/layout'
@@ -29,7 +28,11 @@ const layout = useLayoutStore()
 const { sidebarCollapsed } = storeToRefs(layout)
 const { tickets, selectedSquad, isLoading } = storeToRefs(store)
 
-onMounted(() => store.loadSquad(store.selectedSquad))
+onMounted(async () => {
+  store.applyUrlState()
+  await store.loadSquad(store.selectedSquad)
+  store.syncUrl()
+})
 </script>
 
 <template>
@@ -79,9 +82,8 @@ onMounted(() => store.loadSquad(store.selectedSquad))
               <MonthlyBaselineChart />
             </section>
 
-            <section id="capacity" class="scroll-mt-28 space-y-5">
+            <section id="capacity" class="scroll-mt-28">
               <MonthlyCapacitySpChart />
-              <MonthlyCapacityPctChart />
             </section>
 
             <section id="hierarchy" class="scroll-mt-28">

@@ -4,24 +4,52 @@ import Papa from 'papaparse'
 import type { Squad } from '../config/squads'
 import { squadDataPaths, squadStorageKey } from '../config/squads'
 import type { RegionKey, Ticket, WorkTypeStoryPointTableRow } from '../types/ticket'
-import { quarterRange, ticketTimelineDate, timelineFieldFromRow, dateRangeLabelForFilter, headerTitleForFilter, headerTitleParts } from '../utils/dates'
+import { ticketTimelineDate, timelineFieldFromRow, parseTicketDate } from '../utils/dates'
+import {
+  type DateFilterMode,
+  availableYears,
+  currentYear,
+  dateRangeLabelForState,
+  headerTitlePartsForState,
+  loadDateFilterPrefs,
+  resolveDateWindow,
+  saveDateFilterPrefs
+} from '../utils/dateFilters'
 import { parseParentKey } from '../utils/jira'
 import { loadAssumeMissingSpAsOne, saveAssumeMissingSpAsOne, sumEffectiveStoryPoints } from '../utils/storyPoints'
+import { filterDoneTickets, loadDoneTicketsOnly, saveDoneTicketsOnly } from '../utils/ticketFilters'
 import { buildHierarchyAnalysis, countCategoryTreeNodes } from '../utils/hierarchy'
 import {
   buildWorkTypeStoryPointBuckets,
   sortedWorkTypeStoryPointEntries,
   toWorkTypeStoryPointTableSide
 } from '../utils/workType'
+import {
+  buildDashboardUrlQuery,
+  parseDashboardUrl,
+  replaceUrlQuery
+} from '../utils/urlState'
+
+const prefs = loadDateFilterPrefs()
+
+function isDateFilterMode (v: string | undefined): v is DateFilterMode {
+  return !!v && [
+    'all', 'weekly', 'twoWeeks', 'monthly', 'q1', 'q2', 'q3', 'q4', 'custom', 'ytd', 'last6m'
+  ].includes(v)
+}
 
 export const useDashboardStore = defineStore('dashboard', {
   state: () => ({
     tickets: [] as Ticket[],
     selectedSquad: 'SAM' as Squad,
     uploadRegion: 'chennai' as RegionKey,
-    dateFilter: 'all',
+    dateFilter: (isDateFilterMode(prefs.dateFilter) ? prefs.dateFilter : 'all') as DateFilterMode,
+    filterYear: prefs.filterYear && prefs.filterYear >= 2000 ? prefs.filterYear : currentYear(),
+    customFrom: prefs.customFrom ?? '',
+    customTo: prefs.customTo ?? '',
     hierarchyRegionFilter: 'all' as 'all' | RegionKey,
     assumeMissingSpAsOne: loadAssumeMissingSpAsOne(),
+    doneTicketsOnly: loadDoneTicketsOnly(),
     loadError: null as string | null,
     isLoading: false
   }),
@@ -29,32 +57,22 @@ export const useDashboardStore = defineStore('dashboard', {
   getters: {
     filtered (state): Ticket[] {
       let rows = state.tickets.filter(t => t.squad === state.selectedSquad)
-      const df = state.dateFilter
-      if (df === 'all') return rows
-
-      if (df === 'q1' || df === 'q2' || df === 'q3' || df === 'q4') {
-        const year = new Date().getFullYear()
-        const quarter = Number(df.replace('q', '')) as 1 | 2 | 3 | 4
-        const { start, end } = quarterRange(year, quarter)
-        return rows.filter(t => {
+      const window = resolveDateWindow({
+        dateFilter: state.dateFilter,
+        filterYear: state.filterYear,
+        customFrom: state.customFrom,
+        customTo: state.customTo
+      })
+      if (window) {
+        rows = rows.filter(t => {
           const raw = ticketTimelineDate(t)
           if (!raw) return false
-          const dt = new Date(raw)
-          return dt >= start && dt <= end
+          const dt = parseTicketDate(raw)
+          if (!dt) return false
+          return dt >= window.start && dt <= window.end
         })
       }
-
-      const now = new Date()
-      let days = 0
-      if (df === 'weekly') days = 7
-      if (df === 'twoWeeks') days = 14
-      if (df === 'monthly') days = 30
-      const threshold = new Date()
-      threshold.setDate(now.getDate() - days)
-      return rows.filter(t => {
-        const raw = ticketTimelineDate(t)
-        return raw && new Date(raw) >= threshold
-      })
+      return filterDoneTickets(rows, state.doneTicketsOnly)
     },
 
     chennaiFilteredCount (): number {
@@ -65,8 +83,25 @@ export const useDashboardStore = defineStore('dashboard', {
       return this.filtered.filter(t => t.region === 'uk').length
     },
 
+    teamFiltered (): Ticket[] {
+      return this.filtered.filter(t => t.region === 'uk')
+    },
+
+    chennaiFiltered (): Ticket[] {
+      return this.filtered.filter(t => t.region === 'chennai')
+    },
+
+    squadTeamTickets (state): Ticket[] {
+      return state.tickets.filter(t => t.squad === state.selectedSquad && t.region === 'uk')
+    },
+
     totalFilteredSP (state): number {
-      return sumEffectiveStoryPoints(this.filtered, state.assumeMissingSpAsOne)
+      return sumEffectiveStoryPoints(this.teamFiltered, state.assumeMissingSpAsOne)
+    },
+
+    teamLinkedChildCount (state): number {
+      const analysis = buildHierarchyAnalysis(this.teamFiltered, state.assumeMissingSpAsOne)
+      return analysis.linkedChildCount
     },
 
     hasActiveFilters (state): boolean {
@@ -74,15 +109,32 @@ export const useDashboardStore = defineStore('dashboard', {
     },
 
     dateRangeLabel (state): string {
-      return dateRangeLabelForFilter(state.dateFilter)
+      return dateRangeLabelForState({
+        dateFilter: state.dateFilter,
+        filterYear: state.filterYear,
+        customFrom: state.customFrom,
+        customTo: state.customTo
+      })
     },
 
     headerTitle (state): string {
-      return headerTitleForFilter(state.selectedSquad, state.dateFilter)
+      const { squad, period } = headerTitlePartsForState(state.selectedSquad, {
+        dateFilter: state.dateFilter,
+        filterYear: state.filterYear,
+        customFrom: state.customFrom,
+        customTo: state.customTo
+      })
+      if (period.startsWith('·')) return `${squad} ${period}`
+      return `${squad} ${period}`
     },
 
     headerTitleParts (state): { squad: string; period: string } {
-      return headerTitleParts(state.selectedSquad, state.dateFilter)
+      return headerTitlePartsForState(state.selectedSquad, {
+        dateFilter: state.dateFilter,
+        filterYear: state.filterYear,
+        customFrom: state.customFrom,
+        customTo: state.customTo
+      })
     },
 
     workTypeStoryPointRows (state): WorkTypeStoryPointTableRow[] {
@@ -109,12 +161,65 @@ export const useDashboardStore = defineStore('dashboard', {
         : 0
       const chartHeight = Math.min(880, Math.max(460, nodeCount * 64 + 100))
       return { ...analysis, chartHeight }
+    },
+
+    yearOptions (): number[] {
+      return availableYears(6)
+    },
+
+    needsYearSelector (): boolean {
+      return ['q1', 'q2', 'q3', 'q4', 'ytd'].includes(this.dateFilter)
+    },
+
+    needsCustomDates (): boolean {
+      return this.dateFilter === 'custom'
     }
   },
 
   actions: {
     save () {
       localStorage.setItem(squadStorageKey(this.selectedSquad), JSON.stringify(this.tickets))
+    },
+
+    persistDatePrefs () {
+      saveDateFilterPrefs({
+        dateFilter: this.dateFilter,
+        filterYear: this.filterYear,
+        customFrom: this.customFrom,
+        customTo: this.customTo
+      })
+      this.syncUrl()
+    },
+
+    syncUrl () {
+      const query = buildDashboardUrlQuery({
+        squad: this.selectedSquad,
+        dateFilter: this.dateFilter,
+        filterYear: this.filterYear,
+        customFrom: this.customFrom,
+        customTo: this.customTo,
+        doneTicketsOnly: this.doneTicketsOnly,
+        assumeMissingSpAsOne: this.assumeMissingSpAsOne
+      })
+      replaceUrlQuery(query)
+    },
+
+    applyUrlState () {
+      const url = parseDashboardUrl()
+      if (url.squad) this.selectedSquad = url.squad
+      if (url.dateFilter) this.dateFilter = url.dateFilter
+      if (url.year) this.filterYear = url.year
+      if (url.from) this.customFrom = url.from
+      if (url.to) this.customTo = url.to
+      if (url.from && url.to && !url.dateFilter) this.dateFilter = 'custom'
+      if (url.done != null) {
+        this.doneTicketsOnly = url.done
+        saveDoneTicketsOnly(url.done)
+      }
+      if (url.assumeSp != null) {
+        this.assumeMissingSpAsOne = url.assumeSp
+        saveAssumeMissingSpAsOne(url.assumeSp)
+      }
     },
 
     async loadCsvUrl (url: string, region: RegionKey, squad: Squad): Promise<boolean> {
@@ -168,22 +273,51 @@ export const useDashboardStore = defineStore('dashboard', {
       this.selectedSquad = squad
       this.dateFilter = 'all'
       this.hierarchyRegionFilter = 'all'
+      this.persistDatePrefs()
       this.loadSquad(squad)
+    },
+
+    setDateFilter (value: DateFilterMode) {
+      this.dateFilter = value
+      this.persistDatePrefs()
+    },
+
+    setFilterYear (year: number) {
+      this.filterYear = year
+      this.persistDatePrefs()
+    },
+
+    setCustomRange (from: string, to: string) {
+      this.customFrom = from
+      this.customTo = to
+      this.dateFilter = 'custom'
+      this.persistDatePrefs()
     },
 
     clearFilters () {
       this.dateFilter = 'all'
+      this.customFrom = ''
+      this.customTo = ''
+      this.persistDatePrefs()
     },
 
     setAssumeMissingSpAsOne (value: boolean) {
       this.assumeMissingSpAsOne = value
       saveAssumeMissingSpAsOne(value)
+      this.syncUrl()
+    },
+
+    setDoneTicketsOnly (value: boolean) {
+      this.doneTicketsOnly = value
+      saveDoneTicketsOnly(value)
+      this.syncUrl()
     },
 
     async clearData () {
       localStorage.removeItem(squadStorageKey(this.selectedSquad))
       this.dateFilter = 'all'
       this.hierarchyRegionFilter = 'all'
+      this.persistDatePrefs()
       await this.loadSquadFromFiles(this.selectedSquad)
     },
 
@@ -197,6 +331,7 @@ export const useDashboardStore = defineStore('dashboard', {
         developer: region,
         region,
         status: r.Status as string | undefined,
+        statusCategory: r['Status Category'] as string | undefined,
         workType: r['Issue Type'] as string | undefined,
         storyPoints: Number(r['Custom field (Story Points)'] || 0),
         statusCategoryChanged: timelineFieldFromRow(r),

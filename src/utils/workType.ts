@@ -77,11 +77,15 @@ export function buildWorkTypeStoryPointBuckets (
     side.count += 1
     if (isMissingStoryPoints(t)) {
       side.noSpCount += 1
-      buckets[t.workType]!.totalNoSpCount += 1
     }
     side.tickets.push({ key: t.key || 'No key', storyPoints, url: t.url })
-    buckets[t.workType]!.totalSp += storyPoints
-    buckets[t.workType]!.totalCount += 1
+    if (t.region === 'uk') {
+      buckets[t.workType]!.totalSp += storyPoints
+      buckets[t.workType]!.totalCount += 1
+      if (isMissingStoryPoints(t)) {
+        buckets[t.workType]!.totalNoSpCount += 1
+      }
+    }
   }
   for (const bucket of Object.values(buckets)) {
     bucket.chennai.tickets = sortWorkTypeStoryPointTickets(bucket.chennai.tickets)

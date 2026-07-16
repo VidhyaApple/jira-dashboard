@@ -34,7 +34,7 @@ export function activeRegionValues (
 ): number[] {
   if (filter === 'chennai') return chennai
   if (filter === 'uk') return uk
-  return chennai.map((v, i) => v + (uk[i] ?? 0))
+  return uk.length ? uk : chennai
 }
 
 export function showChennaiSeries (filter: CombinedChartRegionFilter): boolean {

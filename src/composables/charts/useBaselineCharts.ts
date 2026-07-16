@@ -3,13 +3,14 @@ import type { EChartsOption } from 'echarts'
 import { storeToRefs } from 'pinia'
 import { REGION_LABELS } from '../../config/squads'
 import { useDashboardStore } from '../../stores/dashboard'
+import { usePeriodNotesStore } from '../../stores/periodNotes'
 import { buildMonthlySeries } from '../../utils/timelineSeries'
-import { formatPct, periodOverPeriodPct, sumSeries } from '../../utils/baselineSeries'
+import { formatPct, periodOverPeriodPct } from '../../utils/baselineSeries'
+import { noteTooltipLine, periodNoteMarkPoints } from '../../utils/chartPeriodNotes'
 import { pctValueLabel } from '../../utils/chartLabels'
 import {
   type CombinedChartRegionFilter,
-  showChennaiSeries,
-  showUkSeries
+  showChennaiSeries
 } from '../../utils/chartRegion'
 import { NO_DATE_MSG, useChartTheme } from '../useChartTheme'
 
@@ -30,9 +31,10 @@ function buildBaselineChartOption (
   series: TimelineSeries,
   theme: ReturnType<typeof useChartTheme>,
   emptyMsg: string,
-  regionFilter: CombinedChartRegionFilter
+  regionFilter: CombinedChartRegionFilter,
+  notesByMonth: Record<string, string>
 ): EChartsOption {
-  const { labels, chennaiSp, ukSp, chennaiNoSp, ukNoSp } = series
+  const { labels, monthKeys, chennaiSp, ukSp, chennaiNoSp, ukNoSp } = series
   if (labels.length < 2) {
     return theme.withChartMotion({
       animationDuration: 500,
@@ -40,7 +42,7 @@ function buildBaselineChartOption (
     })
   }
 
-  const totalSp = sumSeries(chennaiSp, ukSp)
+  const totalSp = ukSp
   const totalPct = periodOverPeriodPct(totalSp)
   const chennaiPct = periodOverPeriodPct(chennaiSp)
   const ukPct = periodOverPeriodPct(ukSp)
@@ -54,9 +56,7 @@ function buildBaselineChartOption (
       const parts = [`{total|${formatPct(value)}}`]
       if (regionFilter === 'all') {
         const cPct = chennaiPct[i]
-        const uPct = ukPct[i]
         if (cPct != null) parts.push(`{chennai|${REGION_LABELS.chennai} ${formatPct(cPct)}}`)
-        if (uPct != null) parts.push(`{uk|${REGION_LABELS.uk} ${formatPct(uPct)}}`)
       }
 
       return {
@@ -78,8 +78,7 @@ function buildBaselineChartOption (
     })
   }
 
-  const mainSeriesName =
-    regionFilter === 'all' ? 'Total' : REGION_LABELS[regionFilter]
+  const mainSeriesName = REGION_LABELS[regionFilter === 'all' ? 'uk' : regionFilter]
 
   const lineSeries: EChartsOption['series'] = []
   if (regionFilter === 'all' && showChennaiSeries(regionFilter)) {
@@ -98,22 +97,6 @@ function buildBaselineChartOption (
       emphasis: { focus: 'series' }
     })
   }
-  if (regionFilter === 'all' && showUkSeries(regionFilter)) {
-    lineSeries.push({
-      name: REGION_LABELS.uk,
-      type: 'line',
-      smooth: true,
-      showSymbol: true,
-      symbolSize: 7,
-      connectNulls: false,
-      data: ukPct,
-      animationDelay: (idx: number) => idx * 40 + 160,
-      lineStyle: { width: 2.5, color: '#12b76a' },
-      itemStyle: { color: '#12b76a' },
-      label: { ...pctValueLabel(c, '#12b76a'), position: 'bottom' as const },
-      emphasis: { focus: 'series' }
-    })
-  }
 
   function spAt (idx: number): number {
     if (regionFilter === 'chennai') return chennaiSp[idx] ?? 0
@@ -123,8 +106,7 @@ function buildBaselineChartOption (
 
   function noSpAt (idx: number): number {
     if (regionFilter === 'chennai') return chennaiNoSp[idx] ?? 0
-    if (regionFilter === 'uk') return ukNoSp[idx] ?? 0
-    return (chennaiNoSp[idx] ?? 0) + (ukNoSp[idx] ?? 0)
+    return ukNoSp[idx] ?? 0
   }
 
   const noSpCounts = labels.map((_, i) => noSpAt(i))
@@ -146,6 +128,8 @@ function buildBaselineChartOption (
           lines.push('Baseline period — no prior comparison')
           lines.push(`${mainSeriesName}: ${spAt(0)} SP`)
           if (noSpCounts[idx]) lines.push(`<span style="color:#f59e0b">◆ ${noSpCounts[idx]} tickets without story points</span>`)
+          const note = noteTooltipLine(notesByMonth[monthKeys[idx]!])
+          if (note) lines.push(note)
           return lines.join('<br/>')
         }
         lines.push(`<span style="opacity:0.7">vs ${prevPeriod}</span>`)
@@ -161,6 +145,8 @@ function buildBaselineChartOption (
         if (noSpCounts[idx]) {
           lines.push(`<span style="color:#f59e0b">◆ ${noSpCounts[idx]} tickets without story points</span>`)
         }
+        const note = noteTooltipLine(notesByMonth[monthKeys[idx]!])
+        if (note) lines.push(note)
         return lines.join('<br/>')
       }
     },
@@ -203,6 +189,7 @@ function buildBaselineChartOption (
           label: { formatter: 'Baseline', color: c.text, fontSize: 10 },
           data: [{ yAxis: 0 }]
         },
+        markPoint: periodNoteMarkPoints(monthKeys, notesByMonth, mainPct),
         labelLayout: { hideOverlap: true, moveOverlap: 'shiftY' },
         emphasis: { focus: 'series' }
       },
@@ -244,18 +231,26 @@ function buildBaselineChartOption (
 const NEED_PERIODS_MSG = 'Need at least 2 periods to compare performance'
 
 export function useMonthlyBaselineChart (regionFilter: Ref<CombinedChartRegionFilter>) {
-  const { filtered, assumeMissingSpAsOne } = storeToRefs(useDashboardStore())
+  const { filtered, assumeMissingSpAsOne, selectedSquad } = storeToRefs(useDashboardStore())
+  const notesStore = usePeriodNotesStore()
   const theme = useChartTheme()
   const series = computed(() => buildMonthlySeries(filtered.value, assumeMissingSpAsOne.value))
+
+  const monthKeys = computed(() => series.value.monthKeys)
+
+  const notesByMonth = computed(() =>
+    notesStore.notesForMonths(selectedSquad.value, monthKeys.value)
+  )
 
   const chartOption = computed<EChartsOption>(() =>
     buildBaselineChartOption(
       series.value,
       theme,
       series.value.labels.length ? NEED_PERIODS_MSG : NO_DATE_MSG,
-      regionFilter.value
+      regionFilter.value,
+      notesByMonth.value
     )
   )
 
-  return { chartOption }
+  return { chartOption, monthKeys }
 }

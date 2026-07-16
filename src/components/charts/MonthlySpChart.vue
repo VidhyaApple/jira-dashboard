@@ -10,6 +10,7 @@ import BaseEChart from './BaseEChart.vue'
 const { dateRangeLabel } = storeToRefs(useDashboardStore())
 const regionFilter = ref<CombinedChartRegionFilter>('all')
 const { chartOption } = useMonthlySpChart(regionFilter)
+const chartRef = ref<InstanceType<typeof BaseEChart> | null>(null)
 </script>
 
 <template>
@@ -18,7 +19,8 @@ const { chartOption } = useMonthlySpChart(regionFilter)
     show-region-filter
     title="Monthly — Story points"
     :subtitle="`${dateRangeLabel} · by status category changed`"
+    :on-export-png="() => chartRef?.exportPng()"
   >
-    <BaseEChart :option="chartOption" height="340px" />
+    <BaseEChart ref="chartRef" :option="chartOption" height="340px" export-name="monthly-sp" />
   </ChartPanel>
 </template>

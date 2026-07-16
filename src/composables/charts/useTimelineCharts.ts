@@ -52,19 +52,19 @@ function buildCountBarSeries (
 ) {
   const c = theme.chartColors.value
   const series: EChartsOption['series'] = []
-  const stacked = regionFilter === 'all'
+  // Do not stack CIEC + Team — Team already includes CIEC
   if (showChennaiSeries(regionFilter)) {
     series.push({
-      name: REGION_LABELS.chennai, type: 'bar', stack: stacked ? 'vol' : undefined, data: chennaiN,
+      name: REGION_LABELS.chennai, type: 'bar', data: chennaiN,
       animationDelay: (idx: number) => idx * 45 + 80, animationEasing: 'elasticOut', barMaxWidth: 52,
       label: valueLabel(c, { inside: true, position: 'inside' }),
-      itemStyle: { color: CHENNAI_STYLE.light, borderRadius: stacked ? [0, 0, 0, 0] : [8, 8, 0, 0] },
+      itemStyle: { color: CHENNAI_STYLE.light, borderRadius: [8, 8, 0, 0] },
       emphasis: { focus: 'series', itemStyle: { shadowBlur: 16, shadowColor: 'rgba(117, 146, 255, 0.5)' } }
     })
   }
   if (showUkSeries(regionFilter)) {
     series.push({
-      name: REGION_LABELS.uk, type: 'bar', stack: stacked ? 'vol' : undefined, data: ukN,
+      name: REGION_LABELS.uk, type: 'bar', data: ukN,
       animationDelay: (idx: number) => idx * 45 + 120, animationEasing: 'elasticOut', barMaxWidth: 52,
       label: valueLabel(c, { inside: true, position: 'inside' }),
       itemStyle: { color: UK_STYLE.light, borderRadius: [8, 8, 0, 0] },
@@ -82,23 +82,23 @@ function buildCountLineSeries (
 ) {
   const c = theme.chartColors.value
   const series: EChartsOption['series'] = []
-  const stacked = regionFilter === 'all'
+  // Do not stack CIEC + Team — Team already includes CIEC
   if (showChennaiSeries(regionFilter)) {
     series.push({
-      name: REGION_LABELS.chennai, type: 'line', stack: stacked ? 'total' : undefined, smooth: true, symbolSize: 4,
+      name: REGION_LABELS.chennai, type: 'line', smooth: true, symbolSize: 4,
       data: chennaiN, animationDelay: (idx: number) => idx * 28 + 65,
       lineStyle: { width: 1.5, color: CHENNAI_STYLE.main }, itemStyle: { color: CHENNAI_STYLE.main },
-      areaStyle: { color: 'rgba(117, 146, 255, 0.55)' },
+      areaStyle: { color: 'rgba(117, 146, 255, 0.25)' },
       label: valueLabel(c, { color: CHENNAI_STYLE.main }),
       emphasis: { focus: 'series' }
     })
   }
   if (showUkSeries(regionFilter)) {
     series.push({
-      name: REGION_LABELS.uk, type: 'line', stack: stacked ? 'total' : undefined, smooth: true, symbolSize: 4,
+      name: REGION_LABELS.uk, type: 'line', smooth: true, symbolSize: 4,
       data: ukN, animationDelay: (idx: number) => idx * 28 + 100,
       lineStyle: { width: 1.5, color: '#039855' }, itemStyle: { color: '#039855' },
-      areaStyle: { color: 'rgba(50, 213, 131, 0.55)' },
+      areaStyle: { color: 'rgba(50, 213, 131, 0.25)' },
       label: valueLabel(c, { color: UK_STYLE.main, position: 'bottom' }),
       emphasis: { focus: 'series' }
     })

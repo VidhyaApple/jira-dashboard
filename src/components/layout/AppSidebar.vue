@@ -3,6 +3,7 @@ import { storeToRefs } from 'pinia'
 import { SQUADS } from '../../config/squads'
 import { useDashboardStore } from '../../stores/dashboard'
 import { useLayoutStore } from '../../stores/layout'
+import type { DateFilterMode } from '../../utils/dateFilters'
 import UploadPanel from '../dashboard/UploadPanel.vue'
 import CapacityForm from '../dashboard/CapacityForm.vue'
 
@@ -12,10 +13,17 @@ const { sidebarCollapsed, mobileSidebarOpen, activeSection } = storeToRefs(layou
 const {
   selectedSquad,
   dateFilter,
+  filterYear,
+  customFrom,
+  customTo,
   tickets,
   hasActiveFilters,
   loadError,
-  assumeMissingSpAsOne
+  assumeMissingSpAsOne,
+  doneTicketsOnly,
+  needsYearSelector,
+  needsCustomDates,
+  yearOptions
 } = storeToRefs(store)
 
 const navGroups = [
@@ -57,6 +65,10 @@ function navClass (id: string) {
     ? 'bg-white/10 text-white border-l-[3px] border-[#20a8d8]'
     : 'text-[#c4c9d0] border-l-[3px] border-transparent hover:bg-white/5 hover:text-white'
 }
+
+function onDateFilterChange (e: Event) {
+  store.setDateFilter((e.target as HTMLSelectElement).value as DateFilterMode)
+}
 </script>
 
 <template>
@@ -78,7 +90,6 @@ function navClass (id: string) {
       <span v-if="!sidebarCollapsed" class="truncate text-sm font-semibold tracking-wide text-white">JIRA ANALYTICS</span>
     </div>
 
-    <!-- Filters -->
     <div v-if="!sidebarCollapsed" class="border-b border-white/10 px-3 py-3">
       <p class="mb-2 px-1 text-[10px] font-semibold uppercase tracking-widest text-[#8a93a2]">Filters</p>
       <div class="space-y-2">
@@ -96,25 +107,61 @@ function navClass (id: string) {
           :value="dateFilter"
           :class="sidebarSelectClass"
           :disabled="!tickets.length"
-          @change="dateFilter = ($event.target as HTMLSelectElement).value"
+          @change="onDateFilterChange"
         >
           <option value="all">All Time</option>
           <optgroup label="Rolling window">
             <option value="weekly">Last 7 Days</option>
             <option value="twoWeeks">Last 14 Days</option>
             <option value="monthly">Last 30 Days</option>
+            <option value="last6m">Last 6 Months</option>
           </optgroup>
-          <optgroup label="Quarter">
+          <optgroup label="Calendar">
+            <option value="ytd">Year to date</option>
             <option value="q1">Q1 (Jan–Mar)</option>
             <option value="q2">Q2 (Apr–Jun)</option>
             <option value="q3">Q3 (Jul–Sep)</option>
             <option value="q4">Q4 (Oct–Dec)</option>
+            <option value="custom">Custom range…</option>
           </optgroup>
         </select>
+
+        <select
+          v-if="needsYearSelector"
+          :value="filterYear"
+          :class="sidebarSelectClass"
+          :disabled="!tickets.length"
+          title="Year for quarter / YTD filters"
+          @change="store.setFilterYear(Number(($event.target as HTMLSelectElement).value))"
+        >
+          <option v-for="y in yearOptions" :key="y" :value="y">Year: {{ y }}</option>
+        </select>
+
+        <div v-if="needsCustomDates" class="space-y-1.5 rounded border border-white/10 bg-[#3a4149]/60 p-2">
+          <label class="block">
+            <span class="mb-0.5 block text-[10px] uppercase tracking-wide text-[#8a93a2]">From</span>
+            <input
+              type="date"
+              :value="customFrom"
+              :class="sidebarSelectClass"
+              @change="store.setCustomRange(($event.target as HTMLInputElement).value, customTo || ($event.target as HTMLInputElement).value)"
+            />
+          </label>
+          <label class="block">
+            <span class="mb-0.5 block text-[10px] uppercase tracking-wide text-[#8a93a2]">To</span>
+            <input
+              type="date"
+              :value="customTo"
+              :class="sidebarSelectClass"
+              @change="store.setCustomRange(customFrom || ($event.target as HTMLInputElement).value, ($event.target as HTMLInputElement).value)"
+            />
+          </label>
+        </div>
 
         <label
           class="flex cursor-pointer items-start gap-2 rounded border border-white/10 bg-[#3a4149]/60 px-2.5 py-2 text-xs text-[#c4c9d0]"
           :class="{ 'opacity-50 pointer-events-none': !tickets.length }"
+          title="Treat missing story points as 1 SP across all charts and KPIs"
         >
           <input
             type="checkbox"
@@ -124,6 +171,21 @@ function navClass (id: string) {
             @change="store.setAssumeMissingSpAsOne(($event.target as HTMLInputElement).checked)"
           />
           <span>Assume tickets without SP count as 1 SP</span>
+        </label>
+
+        <label
+          class="flex cursor-pointer items-start gap-2 rounded border border-white/10 bg-[#3a4149]/60 px-2.5 py-2 text-xs text-[#c4c9d0]"
+          :class="{ 'opacity-50 pointer-events-none': !tickets.length }"
+          title="Limits charts and KPIs to Done status / Done category"
+        >
+          <input
+            type="checkbox"
+            class="mt-0.5 rounded border-white/25 bg-[#3a4149] text-[#20a8d8] focus:ring-[#20a8d8] focus:ring-offset-0"
+            :checked="doneTicketsOnly"
+            :disabled="!tickets.length"
+            @change="store.setDoneTicketsOnly(($event.target as HTMLInputElement).checked)"
+          />
+          <span>Only Done tickets</span>
         </label>
 
         <button
@@ -148,7 +210,6 @@ function navClass (id: string) {
       </div>
     </div>
 
-    <!-- Collapsed: expand to access filters -->
     <div v-else class="border-b border-white/10 p-2">
       <button
         type="button"

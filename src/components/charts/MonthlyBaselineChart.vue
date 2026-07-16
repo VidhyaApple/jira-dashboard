@@ -6,10 +6,12 @@ import { useMonthlyBaselineChart } from '../../composables/charts/useBaselineCha
 import type { CombinedChartRegionFilter } from '../../utils/chartRegion'
 import ChartPanel from '../ui/ChartPanel.vue'
 import BaseEChart from './BaseEChart.vue'
+import PeriodNotesPanel from '../dashboard/PeriodNotesPanel.vue'
 
 const { dateRangeLabel } = storeToRefs(useDashboardStore())
 const regionFilter = ref<CombinedChartRegionFilter>('all')
-const { chartOption } = useMonthlyBaselineChart(regionFilter)
+const { chartOption, monthKeys } = useMonthlyBaselineChart(regionFilter)
+const chartRef = ref<InstanceType<typeof BaseEChart> | null>(null)
 </script>
 
 <template>
@@ -19,7 +21,9 @@ const { chartOption } = useMonthlyBaselineChart(regionFilter)
     span="full"
     title="Monthly — Story points performance"
     :subtitle="`${dateRangeLabel} · % change vs previous month (first month is baseline)`"
+    :on-export-png="() => chartRef?.exportPng()"
   >
-    <BaseEChart :option="chartOption" height="360px" />
+    <BaseEChart ref="chartRef" :option="chartOption" height="360px" export-name="monthly-baseline" />
+    <PeriodNotesPanel :month-keys="monthKeys" />
   </ChartPanel>
 </template>

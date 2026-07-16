@@ -11,6 +11,7 @@ export type Ticket = {
   developer: string
   region: RegionKey
   status?: string
+  statusCategory?: string
   workType?: string
   storyPoints?: number
   statusCategoryChanged?: string

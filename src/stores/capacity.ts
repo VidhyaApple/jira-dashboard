@@ -1,12 +1,13 @@
 import { defineStore } from 'pinia'
 import { SQUADS, type Squad } from '../config/squads'
 import {
+  BASELINE_MODE_STORAGE_KEY,
   CAPACITY_STORAGE_KEY,
   monthlyCapacitySp,
   SP_PER_DEV_PER_DAY,
   WORKING_DAYS_PER_MONTH
 } from '../config/capacity'
-import type { CapacityBySquad, SquadCapacity } from '../types/capacity'
+import type { CapacityBaselineMode, CapacityBySquad, SquadCapacity } from '../types/capacity'
 import type { RegionKey } from '../types/ticket'
 
 function emptyCapacity (): SquadCapacity {
@@ -38,9 +39,17 @@ function loadCapacity (): CapacityBySquad {
   }
 }
 
+function loadBaselineMode (): CapacityBaselineMode {
+  if (typeof window === 'undefined') return 'filtered'
+  const stored = localStorage.getItem(BASELINE_MODE_STORAGE_KEY)
+  if (stored === 'filtered' || stored === 'capacity') return stored
+  return 'filtered'
+}
+
 export const useCapacityStore = defineStore('capacity', {
   state: () => ({
-    bySquad: loadCapacity()
+    bySquad: loadCapacity(),
+    baselineMode: loadBaselineMode() as CapacityBaselineMode
   }),
 
   getters: {
@@ -60,7 +69,7 @@ export const useCapacityStore = defineStore('capacity', {
       const cap = state.bySquad[squad] ?? emptyCapacity()
       const chennai = monthlyCapacitySp(cap.chennai)
       const uk = monthlyCapacitySp(cap.uk)
-      return { chennai, uk, total: chennai + uk }
+      return { chennai, uk, total: uk }
     },
 
     hasSquadCapacity: state => (squad: Squad): boolean => {
@@ -78,6 +87,11 @@ export const useCapacityStore = defineStore('capacity', {
       if (!this.bySquad[squad]) this.bySquad[squad] = emptyCapacity()
       this.bySquad[squad][region] = Math.max(0, Math.floor(count) || 0)
       this.save()
+    },
+
+    setBaselineMode (mode: CapacityBaselineMode) {
+      this.baselineMode = mode
+      localStorage.setItem(BASELINE_MODE_STORAGE_KEY, mode)
     }
   }
 })
