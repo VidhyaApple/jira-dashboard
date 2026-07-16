@@ -17,6 +17,20 @@ export function isDoneTicket (ticket: Pick<Ticket, 'status' | 'statusCategory'>)
   return ticket.status?.trim().toLowerCase() === 'done'
 }
 
+export function isClosedTicket (ticket: Pick<Ticket, 'status' | 'statusCategory'>): boolean {
+  const status = ticket.status?.trim().toLowerCase()
+  if (status === 'closed') return true
+  return ticket.statusCategory?.trim().toLowerCase() === 'closed'
+}
+
+export function filterClosedTickets<T extends Pick<Ticket, 'status' | 'statusCategory'>> (
+  tickets: T[],
+  closedOnly: boolean
+): T[] {
+  if (!closedOnly) return tickets
+  return tickets.filter(isClosedTicket)
+}
+
 export function filterDoneTickets<T extends Pick<Ticket, 'status' | 'statusCategory'>> (
   tickets: T[],
   doneOnly: boolean

@@ -4,7 +4,7 @@ import { REGION_LABELS } from '../../config/squads'
 import { useDashboardStore } from '../../stores/dashboard'
 
 const store = useDashboardStore()
-const { selectedSquad, uploadRegion } = storeToRefs(store)
+const { selectedSquad, uploadRegion, isSupportSquad } = storeToRefs(store)
 
 const sidebarSelectClass =
   'w-full rounded border border-white/15 bg-[#3a4149] px-2.5 py-2 text-xs text-white outline-none focus:border-[#20a8d8]'
@@ -22,7 +22,7 @@ function onFileChange (e: Event) {
       <span class="text-[10px] text-[#8a93a2] transition group-open:rotate-180">▼</span>
     </summary>
     <div class="mt-2 space-y-2">
-      <select v-model="uploadRegion" :class="sidebarSelectClass">
+      <select v-if="!isSupportSquad" v-model="uploadRegion" :class="sidebarSelectClass">
         <option value="chennai">{{ REGION_LABELS.chennai }} (ciec.csv)</option>
         <option value="uk">{{ REGION_LABELS.uk }} (team.csv)</option>
       </select>
@@ -32,7 +32,10 @@ function onFileChange (e: Event) {
         class="w-full rounded border border-white/15 bg-[#3a4149] px-2.5 py-2 text-xs text-[#c4c9d0] file:mr-2 file:border-0 file:bg-transparent file:text-xs file:font-medium file:text-white"
         @change="onFileChange"
       />
-      <p class="px-1 text-[10px] leading-snug text-[#8a93a2]">
+      <p v-if="isSupportSquad" class="px-1 text-[10px] leading-snug text-[#8a93a2]">
+        Expected: public/sources/{{ selectedSquad }}/support.csv
+      </p>
+      <p v-else class="px-1 text-[10px] leading-snug text-[#8a93a2]">
         Expected: public/sources/{{ selectedSquad }}/ciec.csv and team.csv
       </p>
     </div>

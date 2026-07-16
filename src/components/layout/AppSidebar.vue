@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
 import { SQUADS } from '../../config/squads'
 import { useDashboardStore } from '../../stores/dashboard'
@@ -23,10 +24,12 @@ const {
   doneTicketsOnly,
   needsYearSelector,
   needsCustomDates,
-  yearOptions
+  yearOptions,
+  isSupportSquad,
+  showHierarchyChart
 } = storeToRefs(store)
 
-const navGroups = [
+const deliveryNavGroups = [
   {
     label: 'Analytics',
     items: [
@@ -45,6 +48,33 @@ const navGroups = [
     ]
   }
 ]
+
+const supportNavGroups = [
+  {
+    label: 'Analytics',
+    items: [
+      { id: 'overview', label: 'Dashboard', icon: 'M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z' },
+      { id: 'status', label: 'State & Priority', icon: 'M10.5 6a7.5 7.5 0 1 0 7.5 7.5h-7.5V6Z M13.5 10.5H21A7.5 7.5 0 0 0 13.5 3v7.5Z' },
+      { id: 'work-type', label: 'Categories', icon: 'M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z' }
+    ]
+  },
+  {
+    label: 'Reports',
+    items: [
+      { id: 'timeline', label: 'Timeline', icon: 'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5' },
+      { id: 'hierarchy', label: 'Parent incidents', icon: 'M12 16.5V9.75m0 0 3 3m-3-3-3 3M6.75 19.5a4.5 4.5 0 0 1-1.41-8.775 5.25 5.25 0 0 1 10.233-2.33 3 3 0 0 1 3.758 3.848A3.752 3.752 0 0 1 18 19.5H6.75Z' }
+    ]
+  }
+]
+
+const navGroups = computed(() => {
+  const groups = isSupportSquad.value ? supportNavGroups : deliveryNavGroups
+  if (showHierarchyChart.value) return groups
+  return groups.map(group => ({
+    ...group,
+    items: group.items.filter(item => item.id !== 'hierarchy')
+  }))
+})
 
 const sidebarSelectClass =
   'w-full rounded border border-white/15 bg-[#3a4149] px-2.5 py-2 text-xs text-white outline-none focus:border-[#20a8d8] disabled:opacity-50'
@@ -159,6 +189,7 @@ function onDateFilterChange (e: Event) {
         </div>
 
         <label
+          v-if="!isSupportSquad"
           class="flex cursor-pointer items-start gap-2 rounded border border-white/10 bg-[#3a4149]/60 px-2.5 py-2 text-xs text-[#c4c9d0]"
           :class="{ 'opacity-50 pointer-events-none': !tickets.length }"
           title="Treat missing story points as 1 SP across all charts and KPIs"
@@ -176,7 +207,7 @@ function onDateFilterChange (e: Event) {
         <label
           class="flex cursor-pointer items-start gap-2 rounded border border-white/10 bg-[#3a4149]/60 px-2.5 py-2 text-xs text-[#c4c9d0]"
           :class="{ 'opacity-50 pointer-events-none': !tickets.length }"
-          title="Limits charts and KPIs to Done status / Done category"
+          :title="isSupportSquad ? 'Limits charts and KPIs to Closed incidents' : 'Limits charts and KPIs to Done status / Done category'"
         >
           <input
             type="checkbox"
@@ -185,7 +216,7 @@ function onDateFilterChange (e: Event) {
             :disabled="!tickets.length"
             @change="store.setDoneTicketsOnly(($event.target as HTMLInputElement).checked)"
           />
-          <span>Only Done tickets</span>
+          <span>{{ isSupportSquad ? 'Closed incidents only' : 'Only Done tickets' }}</span>
         </label>
 
         <button
@@ -204,7 +235,7 @@ function onDateFilterChange (e: Event) {
 
         <p v-if="loadError" class="px-1 text-[11px] leading-snug text-[#f86c6b]">{{ loadError }}</p>
 
-        <div class="border-t border-white/10 pt-3">
+        <div v-if="!isSupportSquad" class="border-t border-white/10 pt-3">
           <CapacityForm />
         </div>
       </div>

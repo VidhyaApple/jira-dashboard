@@ -16,6 +16,17 @@ export type Ticket = {
   storyPoints?: number
   statusCategoryChanged?: string
   updated?: string
+  /** ServiceNow support fields (MINT) */
+  openedAt?: string
+  closedAt?: string
+  priority?: string
+  category?: string
+  subcategory?: string
+  assignmentGroup?: string
+  assignedTo?: string
+  openedBy?: string
+  closedBy?: string
+  ageSeconds?: number
 }
 
 export type MergedTicket = Ticket & { regions: RegionKey[] }

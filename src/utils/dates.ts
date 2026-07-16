@@ -6,12 +6,30 @@ export function parseJiraDate (value: unknown): string | undefined {
   return Number.isNaN(d.getTime()) ? undefined : value.trim()
 }
 
+/** ServiceNow export format: DD/MM/YYYY HH:mm:ss */
+export function parseServiceNowDate (value: unknown): string | undefined {
+  if (typeof value !== 'string' || !value.trim()) return undefined
+  const trimmed = value.trim()
+  const match = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})$/)
+  if (!match) return undefined
+  const [, dd, mm, yyyy, hh, min, sec] = match
+  const d = new Date(
+    Number(yyyy),
+    Number(mm) - 1,
+    Number(dd),
+    Number(hh),
+    Number(min),
+    Number(sec)
+  )
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString()
+}
+
 export function timelineFieldFromRow (r: Record<string, unknown>): string | undefined {
   return parseJiraDate(r['Status Category Changed']) ?? parseJiraDate(r.Updated)
 }
 
 export function ticketTimelineDate (t: Ticket): string | undefined {
-  return t.statusCategoryChanged ?? t.updated
+  return t.openedAt ?? t.statusCategoryChanged ?? t.updated
 }
 
 export function quarterRange (year: number, quarter: 1 | 2 | 3 | 4): { start: Date; end: Date } {

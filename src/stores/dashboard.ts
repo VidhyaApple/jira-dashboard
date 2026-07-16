@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import * as XLSX from 'xlsx'
 import Papa from 'papaparse'
 import type { Squad } from '../config/squads'
-import { squadDataPaths, squadStorageKey } from '../config/squads'
+import { isSupportSquad as squadIsSupport, supportDataPath, squadDataPaths, squadStorageKey } from '../config/squads'
 import type { RegionKey, Ticket, WorkTypeStoryPointTableRow } from '../types/ticket'
 import { ticketTimelineDate, timelineFieldFromRow, parseTicketDate } from '../utils/dates'
 import {
@@ -17,13 +17,15 @@ import {
 } from '../utils/dateFilters'
 import { parseParentKey } from '../utils/jira'
 import { loadAssumeMissingSpAsOne, saveAssumeMissingSpAsOne, sumEffectiveStoryPoints } from '../utils/storyPoints'
-import { filterDoneTickets, loadDoneTicketsOnly, saveDoneTicketsOnly } from '../utils/ticketFilters'
+import { filterClosedTickets, filterDoneTickets, loadDoneTicketsOnly, saveDoneTicketsOnly } from '../utils/ticketFilters'
 import { buildHierarchyAnalysis, countCategoryTreeNodes } from '../utils/hierarchy'
 import {
   buildWorkTypeStoryPointBuckets,
   sortedWorkTypeStoryPointEntries,
   toWorkTypeStoryPointTableSide
 } from '../utils/workType'
+import { parseSupportRows } from '../utils/supportParser'
+import { avgAgeDays } from '../utils/supportSeries'
 import {
   buildDashboardUrlQuery,
   parseDashboardUrl,
@@ -31,6 +33,11 @@ import {
 } from '../utils/urlState'
 
 const prefs = loadDateFilterPrefs()
+
+function looksLikeSupportData (tickets: Ticket[]): boolean {
+  if (!tickets.length) return false
+  return tickets.some(t => t.openedAt || t.category || t.priority)
+}
 
 function isDateFilterMode (v: string | undefined): v is DateFilterMode {
   return !!v && [
@@ -55,6 +62,10 @@ export const useDashboardStore = defineStore('dashboard', {
   }),
 
   getters: {
+    isSupportSquad (state): boolean {
+      return squadIsSupport(state.selectedSquad)
+    },
+
     filtered (state): Ticket[] {
       let rows = state.tickets.filter(t => t.squad === state.selectedSquad)
       const window = resolveDateWindow({
@@ -71,6 +82,9 @@ export const useDashboardStore = defineStore('dashboard', {
           if (!dt) return false
           return dt >= window.start && dt <= window.end
         })
+      }
+      if (squadIsSupport(state.selectedSquad)) {
+        return filterClosedTickets(rows, state.doneTicketsOnly)
       }
       return filterDoneTickets(rows, state.doneTicketsOnly)
     },
@@ -93,6 +107,19 @@ export const useDashboardStore = defineStore('dashboard', {
 
     squadTeamTickets (state): Ticket[] {
       return state.tickets.filter(t => t.squad === state.selectedSquad && t.region === 'uk')
+    },
+
+    supportSquadTickets (state): Ticket[] {
+      return state.tickets.filter(t => t.squad === state.selectedSquad)
+    },
+
+    supportLinkedChildCount (): number {
+      const analysis = buildHierarchyAnalysis(this.filtered, false)
+      return analysis.linkedChildCount
+    },
+
+    supportAvgResolutionDays (): number | null {
+      return avgAgeDays(this.filtered)
     },
 
     totalFilteredSP (state): number {
@@ -163,6 +190,11 @@ export const useDashboardStore = defineStore('dashboard', {
       return { ...analysis, chartHeight }
     },
 
+    showHierarchyChart (state): boolean {
+      if (squadIsSupport(state.selectedSquad)) return false
+      return this.filtered.length > 0
+    },
+
     yearOptions (): number[] {
       return availableYears(6)
     },
@@ -222,6 +254,35 @@ export const useDashboardStore = defineStore('dashboard', {
       }
     },
 
+    parseSupportRows (json: Record<string, unknown>[], squad: Squad, append: boolean) {
+      const rows = parseSupportRows(json, squad)
+      if (append) {
+        this.tickets.push(...rows)
+      } else {
+        this.tickets = this.tickets
+          .filter(t => t.squad !== squad)
+          .concat(rows)
+      }
+      this.save()
+    },
+
+    async loadSupportCsvUrl (url: string, squad: Squad): Promise<boolean> {
+      const res = await fetch(url)
+      if (!res.ok) return false
+      const text = await res.text()
+      await new Promise<void>((resolve) => {
+        Papa.parse(text, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (r) => {
+            this.parseSupportRows(r.data as Record<string, unknown>[], squad, true)
+            resolve()
+          }
+        })
+      })
+      return true
+    },
+
     async loadCsvUrl (url: string, region: RegionKey, squad: Squad): Promise<boolean> {
       const res = await fetch(url)
       if (!res.ok) return false
@@ -243,7 +304,18 @@ export const useDashboardStore = defineStore('dashboard', {
       this.isLoading = true
       this.loadError = null
       this.tickets = []
-      const paths = squadDataPaths(squad)
+
+      if (squadIsSupport(squad)) {
+        const ok = await this.loadSupportCsvUrl(supportDataPath(squad), squad)
+        if (!ok) {
+          this.loadError = `No data found for ${squad}. Add public/sources/${squad}/support.csv`
+        }
+        this.save()
+        this.isLoading = false
+        return
+      }
+
+      const paths = squadDataPaths(squad) as { chennai: string; team: string }
       const [ciecOk, teamOk] = await Promise.all([
         this.loadCsvUrl(paths.chennai, 'chennai', squad),
         this.loadCsvUrl(paths.team, 'uk', squad)
@@ -262,7 +334,13 @@ export const useDashboardStore = defineStore('dashboard', {
       const stored = localStorage.getItem(squadStorageKey(squad))
       if (stored) {
         const parsed = JSON.parse(stored) as Ticket[]
-        this.tickets = parsed.map(t => ({ ...t, squad: t.squad ?? squad }))
+        const tickets = parsed.map(t => ({ ...t, squad: t.squad ?? squad }))
+        if (squadIsSupport(squad) && tickets.length > 0 && !looksLikeSupportData(tickets)) {
+          localStorage.removeItem(squadStorageKey(squad))
+          await this.loadSquadFromFiles(squad)
+          return
+        }
+        this.tickets = tickets
         this.loadError = null
         return
       }
@@ -349,6 +427,16 @@ export const useDashboardStore = defineStore('dashboard', {
 
     handleFileUpload (file: File) {
       const ext = file.name.split('.').pop()?.toLowerCase()
+      if (squadIsSupport(this.selectedSquad)) {
+        if (ext === 'csv') {
+          Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: r => this.parseSupportRows(r.data as Record<string, unknown>[], this.selectedSquad, false)
+          })
+        }
+        return
+      }
       if (ext === 'csv') {
         Papa.parse(file, {
           header: true,
