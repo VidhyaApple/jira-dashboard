@@ -29,6 +29,7 @@ import SupportMonthlyOpenedChart from '../components/charts/support/SupportMonth
 import SupportMonthlyClosedChart from '../components/charts/support/SupportMonthlyClosedChart.vue'
 import SupportVolumeBaselineChart from '../components/charts/support/SupportVolumeBaselineChart.vue'
 import SupportAgeTrendChart from '../components/charts/support/SupportAgeTrendChart.vue'
+import { squadLabel, squadDataDir } from '../config/squads'
 import { useDashboardStore } from '../stores/dashboard'
 import { useLayoutStore } from '../stores/layout'
 import { provideEChartsOptions } from '../plugins/echarts'
@@ -59,13 +60,13 @@ onMounted(async () => {
         <KpiCards v-else />
 
         <div v-if="!tickets.length && !isLoading" class="rounded bg-white px-6 py-16 text-center shadow-sm dark:bg-[#2f353a]">
-          <p class="text-gray-700 dark:text-gray-200">No data for squad <strong>{{ selectedSquad }}</strong>.</p>
+          <p class="text-gray-700 dark:text-gray-200">No data for squad <strong>{{ squadLabel(selectedSquad) }}</strong>.</p>
           <p v-if="isSupportSquad" class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Add <code class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">public/sources/{{ selectedSquad }}/support.csv</code>,
+            Add <code class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">public/sources/{{ squadDataDir(selectedSquad) }}/support.csv</code>,
             or upload the file in the sidebar.
           </p>
           <p v-else class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-            Add <code class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">public/sources/{{ selectedSquad }}/ciec.csv</code>
+            Add <code class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">public/sources/{{ squadDataDir(selectedSquad) }}/ciec.csv</code>
             and <code class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">team.csv</code>, or upload files in the sidebar.
           </p>
         </div>

@@ -42,10 +42,10 @@ describe('parseSupportRows', () => {
       'Parent Incident': 'INC999',
       Priority: '4 - Low',
       State: 'Closed'
-    }], 'MINT')
+    }], 'Service OPS')
 
     expect(row?.key).toBe('INC123')
-    expect(row?.squad).toBe('MINT')
+    expect(row?.squad).toBe('Service OPS')
     expect(row?.category).toBe('AdTech')
     expect(row?.subcategory).toBe('Sky Data')
     expect(row?.parentKey).toBe('INC999')
@@ -57,7 +57,7 @@ describe('parseSupportRows', () => {
 describe('supportSeries', () => {
   const tickets: Ticket[] = [
     {
-      squad: 'MINT',
+      squad: 'Service OPS',
       developer: 'support',
       region: 'uk',
       openedAt: new Date(2026, 3, 15).toISOString(),
@@ -66,7 +66,7 @@ describe('supportSeries', () => {
       subcategory: 'Sky'
     },
     {
-      squad: 'MINT',
+      squad: 'Service OPS',
       developer: 'support',
       region: 'uk',
       openedAt: new Date(2026, 3, 20).toISOString(),

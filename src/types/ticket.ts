@@ -16,7 +16,7 @@ export type Ticket = {
   storyPoints?: number
   statusCategoryChanged?: string
   updated?: string
-  /** ServiceNow support fields (MINT) */
+  /** ServiceNow support fields (Service OPS) */
   openedAt?: string
   closedAt?: string
   priority?: string

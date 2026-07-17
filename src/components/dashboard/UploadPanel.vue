@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { REGION_LABELS } from '../../config/squads'
+import { REGION_LABELS, squadLabel, squadDataDir } from '../../config/squads'
 import { useDashboardStore } from '../../stores/dashboard'
 
 const store = useDashboardStore()
@@ -18,7 +18,7 @@ function onFileChange (e: Event) {
 <template>
   <details class="group">
     <summary class="flex cursor-pointer list-none items-center justify-between px-1 py-1 text-xs font-semibold text-[#c4c9d0] hover:text-white">
-      <span>Replace squad data — {{ selectedSquad }}</span>
+      <span>Replace squad data — {{ squadLabel(selectedSquad) }}</span>
       <span class="text-[10px] text-[#8a93a2] transition group-open:rotate-180">▼</span>
     </summary>
     <div class="mt-2 space-y-2">
@@ -33,10 +33,10 @@ function onFileChange (e: Event) {
         @change="onFileChange"
       />
       <p v-if="isSupportSquad" class="px-1 text-[10px] leading-snug text-[#8a93a2]">
-        Expected: public/sources/{{ selectedSquad }}/support.csv
+        Expected: public/sources/{{ squadDataDir(selectedSquad) }}/support.csv
       </p>
       <p v-else class="px-1 text-[10px] leading-snug text-[#8a93a2]">
-        Expected: public/sources/{{ selectedSquad }}/ciec.csv and team.csv
+        Expected: public/sources/{{ squadDataDir(selectedSquad) }}/ciec.csv and team.csv
       </p>
     </div>
   </details>

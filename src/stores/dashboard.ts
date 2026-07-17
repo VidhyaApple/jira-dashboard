@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import * as XLSX from 'xlsx'
 import Papa from 'papaparse'
 import type { Squad } from '../config/squads'
-import { isSupportSquad as squadIsSupport, supportDataPath, squadDataPaths, squadStorageKey } from '../config/squads'
+import { isSupportSquad as squadIsSupport, supportDataPath, squadDataPaths, squadStorageKey, squadLabel, squadDataDir } from '../config/squads'
 import type { RegionKey, Ticket, WorkTypeStoryPointTableRow } from '../types/ticket'
 import { ticketTimelineDate, timelineFieldFromRow, parseTicketDate } from '../utils/dates'
 import {
@@ -17,7 +17,7 @@ import {
 } from '../utils/dateFilters'
 import { parseParentKey } from '../utils/jira'
 import { loadAssumeMissingSpAsOne, saveAssumeMissingSpAsOne, sumEffectiveStoryPoints } from '../utils/storyPoints'
-import { filterClosedTickets, filterDoneTickets, loadDoneTicketsOnly, saveDoneTicketsOnly } from '../utils/ticketFilters'
+import { filterDoneTickets, loadDoneTicketsOnly, saveDoneTicketsOnly } from '../utils/ticketFilters'
 import { buildHierarchyAnalysis, countCategoryTreeNodes } from '../utils/hierarchy'
 import {
   buildWorkTypeStoryPointBuckets,
@@ -84,7 +84,7 @@ export const useDashboardStore = defineStore('dashboard', {
         })
       }
       if (squadIsSupport(state.selectedSquad)) {
-        return filterClosedTickets(rows, state.doneTicketsOnly)
+        return rows
       }
       return filterDoneTickets(rows, state.doneTicketsOnly)
     },
@@ -145,7 +145,7 @@ export const useDashboardStore = defineStore('dashboard', {
     },
 
     headerTitle (state): string {
-      const { squad, period } = headerTitlePartsForState(state.selectedSquad, {
+      const { squad, period } = headerTitlePartsForState(squadLabel(state.selectedSquad), {
         dateFilter: state.dateFilter,
         filterYear: state.filterYear,
         customFrom: state.customFrom,
@@ -156,7 +156,7 @@ export const useDashboardStore = defineStore('dashboard', {
     },
 
     headerTitleParts (state): { squad: string; period: string } {
-      return headerTitlePartsForState(state.selectedSquad, {
+      return headerTitlePartsForState(squadLabel(state.selectedSquad), {
         dateFilter: state.dateFilter,
         filterYear: state.filterYear,
         customFrom: state.customFrom,
@@ -308,7 +308,7 @@ export const useDashboardStore = defineStore('dashboard', {
       if (squadIsSupport(squad)) {
         const ok = await this.loadSupportCsvUrl(supportDataPath(squad), squad)
         if (!ok) {
-          this.loadError = `No data found for ${squad}. Add public/sources/${squad}/support.csv`
+          this.loadError = `No data found for ${squad}. Add public/sources/${squadDataDir(squad)}/support.csv`
         }
         this.save()
         this.isLoading = false
@@ -321,7 +321,7 @@ export const useDashboardStore = defineStore('dashboard', {
         this.loadCsvUrl(paths.team, 'uk', squad)
       ])
       if (!ciecOk && !teamOk) {
-        this.loadError = `No data found for ${squad}. Add public/sources/${squad}/ciec.csv and team.csv`
+        this.loadError = `No data found for ${squad}. Add public/sources/${squadDataDir(squad)}/ciec.csv and team.csv`
       } else if (!ciecOk || !teamOk) {
         const missing = [!ciecOk && 'ciec.csv', !teamOk && 'team.csv'].filter(Boolean).join(' and ')
         this.loadError = `Partial load for ${squad}: missing ${missing}`

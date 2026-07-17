@@ -11,8 +11,7 @@ const {
   supportSquadTickets,
   filtered,
   supportAvgResolutionDays,
-  supportLinkedChildCount,
-  doneTicketsOnly
+  supportLinkedChildCount
 } = storeToRefs(store)
 
 const monthly = computed(() => buildMonthlyOpenedSeries(filtered.value))
@@ -43,9 +42,7 @@ const kpis = computed(() => {
     {
       label: 'Filtered',
       value: filt.toLocaleString(),
-      sub: doneTicketsOnly.value
-        ? 'Closed only'
-        : `${closedPct.value}% Closed`,
+      sub: `${closedPct.value}% Closed`,
       color: 'bg-[#20a8d8]',
       spark: countSpark
     },

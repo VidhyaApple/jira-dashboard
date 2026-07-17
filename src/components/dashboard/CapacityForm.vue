@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
-import { REGION_LABELS } from '../../config/squads'
+import { REGION_LABELS, squadLabel } from '../../config/squads'
 import { BASELINE_MODE_OPTIONS, capacityFormulaLabel } from '../../config/capacity'
 import { useDashboardStore } from '../../stores/dashboard'
 import { useCapacityStore } from '../../stores/capacity'
@@ -38,7 +38,7 @@ function onBaselineModeChange (e: Event) {
 <template>
   <details class="group" open>
     <summary class="flex cursor-pointer list-none items-center justify-between px-1 py-1 text-xs font-semibold text-[#c4c9d0] hover:text-white">
-      <span>Capacity baseline — {{ selectedSquad }}</span>
+      <span>Capacity baseline — {{ squadLabel(selectedSquad) }}</span>
       <span class="text-[10px] text-[#8a93a2] transition group-open:rotate-180">▼</span>
     </summary>
 

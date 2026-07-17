@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { storeToRefs } from 'pinia'
-import { SQUADS } from '../../config/squads'
+import { SQUADS, squadLabel } from '../../config/squads'
 import { useDashboardStore } from '../../stores/dashboard'
 import { useLayoutStore } from '../../stores/layout'
 import type { DateFilterMode } from '../../utils/dateFilters'
@@ -130,7 +130,7 @@ function onDateFilterChange (e: Event) {
           :class="sidebarSelectClass"
           @change="store.setSquad(($event.target as HTMLSelectElement).value as typeof selectedSquad)"
         >
-          <option v-for="s in SQUADS" :key="s" :value="s">Squad: {{ s }}</option>
+          <option v-for="s in SQUADS" :key="s" :value="s">Squad: {{ squadLabel(s) }}</option>
         </select>
 
         <select
@@ -205,9 +205,10 @@ function onDateFilterChange (e: Event) {
         </label>
 
         <label
+          v-if="!isSupportSquad"
           class="flex cursor-pointer items-start gap-2 rounded border border-white/10 bg-[#3a4149]/60 px-2.5 py-2 text-xs text-[#c4c9d0]"
           :class="{ 'opacity-50 pointer-events-none': !tickets.length }"
-          :title="isSupportSquad ? 'Limits charts and KPIs to Closed incidents' : 'Limits charts and KPIs to Done status / Done category'"
+          title="Limits charts and KPIs to Done status / Done category"
         >
           <input
             type="checkbox"
@@ -216,7 +217,7 @@ function onDateFilterChange (e: Event) {
             :disabled="!tickets.length"
             @change="store.setDoneTicketsOnly(($event.target as HTMLInputElement).checked)"
           />
-          <span>{{ isSupportSquad ? 'Closed incidents only' : 'Only Done tickets' }}</span>
+          <span>Only Done tickets</span>
         </label>
 
         <button

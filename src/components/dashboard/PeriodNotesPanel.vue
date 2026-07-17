@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useDashboardStore } from '../../stores/dashboard'
 import { usePeriodNotesStore } from '../../stores/periodNotes'
+import { squadLabel } from '../../config/squads'
 import { monthLabelFromKey } from '../../utils/dates'
 
 const props = defineProps<{
@@ -75,7 +76,7 @@ function onImportFile (e: Event) {
   <details class="mt-3 rounded border border-[#c8ced3] dark:border-gray-700">
     <summary class="cursor-pointer list-none px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-50 dark:text-gray-200 dark:hover:bg-white/5">
       <span class="flex items-center justify-between gap-2">
-        <span>Month notes — {{ selectedSquad }}</span>
+        <span>Month notes — {{ squadLabel(selectedSquad) }}</span>
         <span class="font-normal text-gray-500 dark:text-gray-400">
           {{ notedCount ? `${notedCount} noted` : 'Add comments' }} · ▼
         </span>
